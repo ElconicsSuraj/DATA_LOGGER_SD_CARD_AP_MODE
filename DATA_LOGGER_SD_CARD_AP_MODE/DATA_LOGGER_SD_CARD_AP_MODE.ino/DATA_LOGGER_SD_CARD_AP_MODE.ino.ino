@@ -7,6 +7,9 @@
 #include <Preferences.h>
 #include "RTClib.h"
 #include <math.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 
 /* ================== PINS ================== */
 #define LED_R   2
@@ -14,6 +17,10 @@
 #define LED_B   26
 #define SD_CS_PIN 5
 #define BOOT_BTN 4
+#define DS18B20_PIN 27   // choose your GPIO (change if needed)
+
+OneWire oneWire(DS18B20_PIN);
+DallasTemperature ds18b20(&oneWire);
 
 /* ================== WIFI AP ================== */
 const char* AP_SSID = "ESP32-LOGGER";
@@ -65,30 +72,24 @@ String rtcTime() {
 }
 
 /* ================== RANDOM DATA LOG ================== */
+
+
+
 void logRandomData() {
 
-  int16_t ax = random(-2000, 2000);
-  int16_t ay = random(-2000, 2000);
-  int16_t az = random(-2000, 2000);
-
-  int16_t gx = random(-500, 500);
-  int16_t gy = random(-500, 500);
-  int16_t gz = random(-500, 500);
-
-  int8_t temp = random(20, 40);
-  uint8_t batt = random(50, 100);
+  // Read DS18B20 temperature
+  ds18b20.requestTemperatures();
+  float tempC = ds18b20.getTempCByIndex(0);
 
   packetCounter++;
   prefs.putUInt("cnt", packetCounter);
 
-  float pitch = atan2(ay, az) * 57.2958;
-  float roll  = atan2(-ax, sqrt(ay * ay + az * az)) * 57.2958;
-
   String file = "/log_" + rtcDate() + ".csv";
 
+  // create file header if not exists
   if (!SD.exists(file)) {
     File f = SD.open(file, FILE_WRITE);
-    f.println("Date,Time,Count,AX,AY,AZ,GX,GY,GZ,Pitch,Roll,Temp,Battery");
+    f.println("Date,Time,Count,Temperature_C");
     f.close();
   }
 
@@ -96,16 +97,17 @@ void logRandomData() {
   if (!f) return;
 
   f.printf(
-    "%s,%s,%lu,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%d,%d\n",
-    rtcDate().c_str(), rtcTime().c_str(), packetCounter,
-    ax, ay, az, gx, gy, gz, pitch, roll, temp, batt
+    "%s,%s,%lu,%.2f\n",
+    rtcDate().c_str(),
+    rtcTime().c_str(),
+    packetCounter,
+    tempC
   );
 
   f.close();
-  Serial.println("Data Logged");
+  Serial.println("Temperature Logged");
   blinkLED(1);
 }
-
 /* ================== WEB UI (YOUR ORIGINAL UI) ================== */
 void handleRoot() {
 server.send(200, "text/html", R"rawliteral(
@@ -287,6 +289,7 @@ void setup() {
   pinMode(LED_G, OUTPUT);
   pinMode(LED_B, OUTPUT);
   pinMode(BOOT_BTN, INPUT_PULLUP);
+  ds18b20.begin();
 
   rgbGreen();
 
