@@ -13,7 +13,7 @@
 #define LED_G   25
 #define LED_B   26
 #define SD_CS_PIN 5
-#define BOOT_BTN 0
+#define BOOT_BTN 4
 
 /* ================== WIFI AP ================== */
 const char* AP_SSID = "ESP32-LOGGER";
